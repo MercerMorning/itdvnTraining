@@ -4,10 +4,16 @@ namespace App;
 
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use App\Models\Role;
 
 class User extends Authenticatable
 {
     use Notifiable;
+
+    protected $table = "users";
+
+    const CREATED_AT = 'createdAt';
+    const UPDATED_AT = 'updatedAt';
 
     /**
      * The attributes that are mass assignable.
@@ -26,4 +32,22 @@ class User extends Authenticatable
     protected $hidden = [
         'password', 'remember_token',
     ];
+
+    public function roles() {
+        return $this->belongsToMany(Role::class, 'roles_user', 'userId', 'roleId');
+    }
+
+    public function hasAccess(array $permissions) : bool
+    {
+        foreach ($this->roles as $role) {
+            if ($role->hasAccess($permissions)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function hasRole($roleSlug) : bool {
+        return $this->roles()->where('slug', $roleSlug)->count() == 1;
+    }
 }

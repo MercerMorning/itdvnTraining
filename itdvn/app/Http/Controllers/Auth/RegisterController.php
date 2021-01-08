@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Models\Role;
 use App\User;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Validator;
+use App\Http\Requests\RegisterRequest;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Auth\RegistersUsers;
 
 class RegisterController extends Controller
@@ -45,13 +47,22 @@ class RegisterController extends Controller
      * @param  array  $data
      * @return \Illuminate\Contracts\Validation\Validator
      */
-    protected function validator(array $data)
+//    protected function validator(array $data)
+//    {
+//        return Validator::make($data, [
+//            'name' => 'required|string|max:255',
+//            'email' => 'required|string|email|max:255|unique:users',
+//            'password' => 'required|string|min:6|confirmed',
+//        ]);
+//    }
+    public function register(RegisterRequest $request)
     {
-        return Validator::make($data, [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-        ]);
+        event(new Registered($user = $this->create($request->all())));
+
+        $this->guard()->login($user);
+
+        return $this->registered($request, $user)
+            ?: redirect($this->redirectPath());
     }
 
     /**
@@ -62,10 +73,19 @@ class RegisterController extends Controller
      */
     protected function create(array $data)
     {
-        return User::create([
-            'name' => $data['name'],
-            'email' => $data['email'],
-            'password' => bcrypt($data['password']),
-        ]);
+        try {
+            $user = User::create([
+                'name' => $data['name'],
+                'email' => $data['email'],
+                'password' => bcrypt($data['password']),
+            ]);
+            $role = Role::where('slug', 'author')->first();
+            $user->roles()->attach($role);
+
+            return $user;
+        } catch (\Exception $e) {
+            log($e->getMessage());
+        }
+
     }
 }
